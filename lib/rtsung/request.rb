@@ -31,7 +31,10 @@ class RTsung
     class Variable
       def initialize(name, value)
         @name, @value = name, value
-        Object.const_set(name.to_s.upcase, "%%_#{name}%%")
+        const_name = name.to_s.upcase
+        unless Object.const_defined?(const_name)
+          Object.const_set(name.to_s.upcase, "%%_#{name}%%")
+        end
       end
 
       def to_xml(xml)

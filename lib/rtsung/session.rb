@@ -5,9 +5,6 @@ class RTsung
     PROBABILITY = 100
     TYPE = :ts_http
 
-    THINK_TIME_RANDOM = true
-
-
     def initialize(name, options = {}, &block)
       @attrs = {
           :name => name,
@@ -16,11 +13,17 @@ class RTsung
       }
 
       @steps = []
+      @think_before = [1, {:random => false}]
 
       instance_eval(&block) if block_given?
     end
 
+    def think_before(value, options = {})
+      @think_before = [value, options]
+    end
+
     def request(*args, &block)
+      think_time(*@think_before) if @think_before
       @steps << Request.new(&block).tap { |request| request.http_request(*args) unless args.empty? }
     end
 
@@ -44,14 +47,14 @@ class RTsung
       post url, params do
         variable :redirect => %r{Location: \(http://.*\)\r}
       end
-      request "%%_redirect%%&uid=#{MOBILE_ID}", &block
+      request REDIRECT
     end
 
     def get_and_follow(url, params = {}, &block)
       get url, params do
         variable :redirect => %r{Location: \(http://.*\)\r}
       end
-      request "%%_redirect%%&pkid=#{USER_ID}", &block
+      request REDIRECT
     end
 
     def make_request(url, method, params = {}, &block)

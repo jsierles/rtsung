@@ -1,19 +1,18 @@
+require 'active_support/core_ext/object/to_query'
+
 class RTsung
   class Session
     PROBABILITY = 100
     TYPE = :ts_http
-
-    HTTP_VERSION = '1.1'
-    HTTP_METHOD = :GET
 
     THINK_TIME_RANDOM = true
 
 
     def initialize(name, options = {}, &block)
       @attrs = {
-        :name => name,
-        :probability => options[:probability] || PROBABILITY,
-        :type => options[:type] || TYPE
+          :name => name,
+          :probability => options[:probability] || PROBABILITY,
+          :type => options[:type] || TYPE
       }
 
       @steps = []
@@ -21,67 +20,64 @@ class RTsung
       instance_eval(&block) if block_given?
     end
 
-    def request(url, options = {})
-      attrs = {
-        :url => url,
-        :version => options[:version] || HTTP_VERSION,
-        :method => options[:method] || HTTP_METHOD
-      }
-
-      if options[:params]
-        params = []
-        options[:params].keys.each { |k| params << "#{k}=#{options[:params][k]}" }
-
-        params = params.join('&amp;')
-
-        if attrs[:method] == :GET
-          attrs[:url] = "#{attrs[:url]}?#{params}"
-        elsif attrs[:method] == :POST
-          attrs[:contents] = params
-        end
-      end
-
-      attrs[:content_type] = options[:content_type] if options[:content_type]
-
-      @steps << {
-        :type => :request,
-        :attrs => attrs
-      }
+    def request(*args, &block)
+      @steps << Request.new(&block).tap { |request| request.http_request(*args) unless args.empty? }
     end
 
     def think_time(value, options = {})
-      if value.is_a?(Range)
-        attrs = {
-          :min => value.min,
-          :max => value.max
-        }
-      else
-        attrs = { :value => value }
+      @steps << ThinkTime.new(value, options)
+    end
+
+    def get(url = '/', params = {}, &block)
+      make_request url, :GET, params, &block
+    end
+
+    def post(url, params = {}, &block)
+      make_request url, :POST, params, &block
+    end
+
+    def put(url, params = {}, &block)
+      make_request url, :POST, params.merge(:_method => 'put'), &block
+    end
+
+    def post_and_follow(url, params = {}, &block)
+      post url, params do
+        variable :redirect => %r{Location: \(http://.*\)\r}
       end
-      
-      attrs[:random] = options[:random] || THINK_TIME_RANDOM
-      
+      request "%%_redirect%%&uid=#{MOBILE_ID}", &block
+    end
+
+    def get_and_follow(url, params = {}, &block)
+      get url, params do
+        variable :redirect => %r{Location: \(http://.*\)\r}
+      end
+      request "%%_redirect%%&pkid=#{USER_ID}", &block
+    end
+
+    def make_request(url, method, params = {}, &block)
+      request url, :method => method, :params => params.merge(additional_params), &block
+    end
+
+    def additional_params
+      {}
+    end
+
+    alias :think :think_time
+
+    def authenticate(user_name, password)
+      attrs = {:userid => user_name, :passwd => password}
       @steps << {
-        :type => :think_time,
-        :attrs => attrs
+          :type => :authenticate,
+          :attrs => attrs
       }
     end
-    alias :think :think_time
 
     def to_xml xml
       if @steps.empty?
         xml.session @attrs
       else
         xml.session(@attrs) do
-          @steps.each { |s|
-            if s[:type] == :request
-              xml.request do
-                xml.http(s[:attrs]) 
-              end
-            elsif s[:type] == :think_time
-              xml.thinktime(s[:attrs])
-            end
-          }
+          @steps.each { |s| s.to_xml xml }
         end
       end
     end

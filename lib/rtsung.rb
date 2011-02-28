@@ -6,6 +6,8 @@ require 'rtsung/server'
 require 'rtsung/phase'
 require 'rtsung/option'
 require 'rtsung/session'
+require 'rtsung/request'
+require 'rtsung/think_time'
 
 class RTsung
   LOG_LEVEL = :notice

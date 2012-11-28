@@ -39,8 +39,10 @@ class RTsung
 
       def to_xml(xml)
         attrs = if @value.is_a?(Regexp)
-          {:re => @value.source}
-        end
+                  {:re => @value.source}
+                elsif @value.is_a?(Hash)
+                  @value
+                end
         xml.dyn_variable attrs.merge(:name => @name)
       end
     end

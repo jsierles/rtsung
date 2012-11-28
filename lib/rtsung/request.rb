@@ -39,7 +39,7 @@ class RTsung
 
       def to_xml(xml)
         attrs = if @value.is_a?(Regexp)
-          {:regexp => @value.source}
+          {:re => @value.source}
         end
         xml.dyn_variable attrs.merge(:name => @name)
       end
